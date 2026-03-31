@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const ORANGE_STOPS = [
   { id: "place-ogmnl", name: "Oak Grove" },
@@ -25,25 +25,59 @@ const ORANGE_STOPS = [
 
 const API_BASE = "https://train.jeffou.io/api";
 
-const STATUS = {
-  DILLY: { label: "Dilly Dally", emoji: "🍦", bg: "#0d7a3e", glow: "#10b95c", sub: "You've got all the time in the world" },
-  WALK: { label: "Walk", emoji: "🚶", bg: "#b8860b", glow: "#e6a817", sub: "Steady pace, you'll make it" },
-  HUSTLE: { label: "Hustle!", emoji: "⚡", bg: "#c4500a", glow: "#e8721f", sub: "Pick up the pace!" },
-  RUN: { label: "RUN!", emoji: "🏃", bg: "#b91c1c", glow: "#ef4444", sub: "Go go go!" },
-  MISSED: { label: "Missed It", emoji: "😮‍💨", bg: "#4a4458", glow: "#7c6f99", sub: "Catch the next one" },
-  ARRIVING: { label: "Arriving!", emoji: "🚇", bg: "#c4500a", glow: "#f97316", sub: "It's pulling in NOW" },
-  NO_SERVICE: { label: "No Trains", emoji: "🌙", bg: "#1e1e2e", glow: "#444", sub: "Service may have ended" },
-  LOADING: { label: "Loading...", emoji: "⏳", bg: "#1e1e2e", glow: "#555", sub: "Fetching predictions" },
+const DARK = {
+  bg:           "#0a0a0f",
+  surface:      "rgba(255,255,255,0.025)",
+  surfaceAlt:   "rgba(255,255,255,0.02)",
+  border:       "rgba(255,255,255,0.06)",
+  borderSubtle: "rgba(255,255,255,0.04)",
+  borderInput:  "rgba(255,255,255,0.1)",
+  btnBg:        "rgba(255,255,255,0.05)",
+  btnBgActive:  "rgba(255,255,255,0.1)",
+  btnBorder:    "rgba(255,255,255,0.08)",
+  dirInactBg:   "rgba(255,255,255,0.03)",
+  dirInactBdr:  "rgba(255,255,255,0.08)",
+  dirInactClr:  "#94a3b8",
+  text:         "#e2e8f0",
+  textStrong:   "#f8fafc",
+  textMid:      "#94a3b8",
+  textMuted:    "#475569",
+  textFaint:    "#1e293b",
+  textLoading:  "#334155",
+  colorScheme:  "dark",
+  rowFirst:     "rgba(255,255,255,0.025)",
+  rowHover:     "rgba(255,255,255,0.03)",
 };
 
-function getStatus(minutesToTrain, walkTime) {
-  if (minutesToTrain === null) return STATUS.NO_SERVICE;
-  if (minutesToTrain <= 0.25) return STATUS.ARRIVING;
-  if (minutesToTrain < walkTime * 0.5) return STATUS.MISSED;
-  if (minutesToTrain < walkTime * 0.85) return STATUS.RUN;
-  if (minutesToTrain < walkTime * 1.3) return STATUS.HUSTLE;
-  if (minutesToTrain < walkTime * 2.2) return STATUS.WALK;
-  return STATUS.DILLY;
+const LIGHT = {
+  bg:           "#f8fafc",
+  surface:      "rgba(0,0,0,0.025)",
+  surfaceAlt:   "rgba(0,0,0,0.015)",
+  border:       "rgba(0,0,0,0.08)",
+  borderSubtle: "rgba(0,0,0,0.05)",
+  borderInput:  "rgba(0,0,0,0.12)",
+  btnBg:        "rgba(0,0,0,0.04)",
+  btnBgActive:  "rgba(0,0,0,0.08)",
+  btnBorder:    "rgba(0,0,0,0.1)",
+  dirInactBg:   "rgba(0,0,0,0.02)",
+  dirInactBdr:  "rgba(0,0,0,0.1)",
+  dirInactClr:  "#64748b",
+  text:         "#1e293b",
+  textStrong:   "#0f172a",
+  textMid:      "#64748b",
+  textMuted:    "#94a3b8",
+  textFaint:    "#cbd5e1",
+  textLoading:  "#94a3b8",
+  colorScheme:  "light",
+  rowFirst:     "rgba(0,0,0,0.025)",
+  rowHover:     "rgba(0,0,0,0.025)",
+};
+
+function getTrainStatus(minutes, walkTime) {
+  if (minutes <= 0.25) return { label: "Now",   color: "#f97316", bg: "rgba(249,115,22,0.12)" };
+  if (minutes < walkTime * 0.7)  return { label: "Run",   color: "#ef4444", bg: "rgba(239,68,68,0.1)"  };
+  if (minutes < walkTime * 1.5)  return { label: "Walk",  color: "#eab308", bg: "rgba(234,179,8,0.1)"  };
+  return                                 { label: "Relax", color: "#22c55e", bg: "rgba(34,197,94,0.1)"  };
 }
 
 function fmt(min) {
@@ -55,34 +89,61 @@ function fmt(min) {
   return `${h}h ${m}m`;
 }
 
-function CircleTimer({ pct, color, size = 220, stroke = 10 }) {
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - Math.max(0, Math.min(1, pct)));
+function SunIcon() {
   return (
-    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
-        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        style={{ transition: "stroke-dashoffset 1s ease, stroke 0.6s ease" }} />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2"  x2="12" y2="4"/>
+      <line x1="12" y1="20" x2="12" y2="22"/>
+      <line x1="4.22" y1="4.22"  x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="2"  y1="12" x2="4"  y2="12"/>
+      <line x1="20" y1="12" x2="22" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
     </svg>
   );
 }
 
-function Shoe({ color, bounce }) {
+function MoonIcon() {
   return (
-    <span style={{
-      display: "inline-block",
-      fontSize: 48,
-      animation: bounce ? "shoeWalk 0.4s ease infinite alternate" : "none",
-      filter: `drop-shadow(0 0 12px ${color})`
-    }}>👟</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
   );
 }
 
 export default function App() {
+  const [dark, setDark] = useState(() => {
+    try {
+      const saved = localStorage.getItem("mbta_theme");
+      if (saved === "dark") return true;
+      if (saved === "light") return false;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } catch { return true; }
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e) => {
+      try {
+        if (!localStorage.getItem("mbta_theme")) setDark(e.matches);
+      } catch { setDark(e.matches); }
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    try { localStorage.setItem("mbta_theme", next ? "dark" : "light"); } catch {}
+  };
+
+  const T = dark ? DARK : LIGHT;
+
   const [stop, setStop] = useState(() => {
-    try { return localStorage.getItem("mbta_stop") || "place-forhl"; } catch { return "place-forhl"; }
+    try { return localStorage.getItem("mbta_stop") || "place-ruggl"; } catch { return "place-ruggl"; }
   });
   const [dir, setDir] = useState(() => {
     try { return localStorage.getItem("mbta_dir") || "0"; } catch { return "0"; }
@@ -98,12 +159,13 @@ export default function App() {
       localStorage.setItem("mbta_walk", String(walkTime));
     } catch {}
   }, [stop, dir, walkTime]);
+
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [lastFetch, setLastFetch] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const intervalRef = useRef(null);
 
   const fetchPredictions = useCallback(async () => {
     try {
@@ -119,6 +181,7 @@ export default function App() {
         .filter(Boolean)
         .sort((a, b) => a - b);
       setPredictions(preds);
+      setLastFetch(Date.now());
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -140,189 +203,279 @@ export default function App() {
   }, []);
 
   const futurePreds = predictions.filter(t => t > now - 15000);
-  const next = futurePreds[0] || null;
-  const after = futurePreds[1] || null;
-
-  const minsToNext = next ? (next - now) / 60000 : null;
-  const minsToAfter = after ? (after - now) / 60000 : null;
-
-  const status = loading ? STATUS.LOADING : getStatus(minsToNext, walkTime);
-  const isUrgent = status === STATUS.RUN || status === STATUS.HUSTLE || status === STATUS.ARRIVING;
-  const ringPct = minsToNext !== null ? Math.min(minsToNext / (walkTime * 3), 1) : 0;
-
-  const dirLabel = dir === "0" ? "→ Oak Grove" : "→ Forest Hills";
   const stopName = ORANGE_STOPS.find(s => s.id === stop)?.name || stop;
+  const dirLabel = dir === "0" ? "Forest Hills" : "Oak Grove";
+  
+  // Progress calculations
+  const secsSinceFetch = lastFetch ? Math.max(0, Math.floor((now - lastFetch) / 1000)) : null;
+  const progressPct = lastFetch ? Math.min(100, ((now - lastFetch) / 15000) * 100) : 0;
+  // Disable transition momentarily when progress resets to 0 to prevent a backwards sliding animation
+  const isResetting = progressPct < 5; 
 
   return (
     <div style={{
-      minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center",
-      background: status.bg, color: "#fff", fontFamily: "'Segoe UI', system-ui, sans-serif",
-      transition: "background 0.8s ease", overflow: "hidden", position: "relative"
+      minHeight: "100vh",
+      background: T.bg,
+      color: T.text,
+      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      transition: "background 0.2s, color 0.2s",
     }}>
       <style>{`
-        @keyframes shoeWalk { from { transform: translateY(0) rotate(-5deg); } to { transform: translateY(-8px) rotate(5deg); } }
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
-        @keyframes urgentPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.03); } }
-        @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-        * { box-sizing: border-box; }
-        select, input { color-scheme: dark; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        select, input { color-scheme: ${T.colorScheme}; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(0.95); } 50% { opacity: 0.5; transform: scale(1.05); } 100% { opacity: 1; transform: scale(0.95); } }
+        .train-row { transition: background 0.15s; }
+        .train-row:hover { background: ${T.rowHover} !important; }
       `}</style>
 
-      {/* Top bar */}
-      <div style={{
-        width: "100%", maxWidth: 480, display: "flex", justifyContent: "space-between",
-        alignItems: "center", padding: "16px 20px 0"
-      }}>
-        <div>
-          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, opacity: 0.6 }}>MBTA Orange Line</div>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{stopName} <span style={{ opacity: 0.5, fontWeight: 400, fontSize: 14 }}>{dirLabel}</span></div>
+      <div style={{ width: "100%", maxWidth: 520, position: "relative" }}>
+        
+        {/* Top Progress Bar */}
+        <div style={{ width: "100%", height: 3, background: T.borderSubtle, overflow: "hidden" }}>
+          <div style={{
+            height: "100%",
+            background: "#f97316",
+            width: `${progressPct}%`,
+            transition: isResetting ? "none" : "width 1s linear"
+          }} />
         </div>
-        <button onClick={() => setSettingsOpen(!settingsOpen)} style={{
-          background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 12, padding: "8px 14px",
-          color: "#fff", fontSize: 18, cursor: "pointer"
-        }}>⚙️</button>
-      </div>
 
-      {/* Settings panel */}
-      {settingsOpen && (
-        <div style={{
-          width: "100%", maxWidth: 480, padding: "16px 20px", animation: "slideUp 0.3s ease",
-          background: "rgba(0,0,0,0.25)", borderRadius: 16, margin: "12px 20px 0"
-        }}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, opacity: 0.6, textTransform: "uppercase", letterSpacing: 1 }}>Station</label>
-            <select value={stop} onChange={e => setStop(e.target.value)} style={{
-              width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)",
-              background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 15, marginTop: 4, outline: "none"
-            }}>
-              {ORANGE_STOPS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, opacity: 0.6, textTransform: "uppercase", letterSpacing: 1 }}>Direction</label>
-            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-              {["0", "1"].map(d => (
-                <button key={d} onClick={() => setDir(d)} style={{
-                  flex: 1, padding: "10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)",
-                  background: dir === d ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.05)",
-                  color: "#fff", fontSize: 14, cursor: "pointer", fontWeight: dir === d ? 700 : 400
-                }}>{d === "0" ? "→ Oak Grove" : "→ Forest Hills"}</button>
-              ))}
+        <div style={{ padding: "0 0 40px" }}>
+          {/* Header */}
+          <div style={{ padding: "25px 28px 20px", borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
+                  textTransform: "uppercase", color: "#f97316", marginBottom: 6,
+                }}>
+                  MBTA Orange Line
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: T.textStrong, lineHeight: 1.2 }}>
+                  {stopName}
+                </div>
+                <div style={{ fontSize: 13, color: T.textMid, marginTop: 3 }}>
+                  toward {dirLabel}
+                  <span style={{ color: T.textMuted, margin: "0 6px" }}>·</span>
+                  {walkTime} min walk
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  onClick={toggleTheme}
+                  title={dark ? "Switch to light mode" : "Switch to dark mode"}
+                  style={{
+                    background: "none", border: "none",
+                    color: T.textMuted, padding: "6px",
+                    cursor: "pointer", display: "flex", alignItems: "center", lineHeight: 0,
+                    borderRadius: 6,
+                  }}
+                >
+                  {dark ? <SunIcon /> : <MoonIcon />}
+                </button>
+
+                <button
+                  onClick={() => setSettingsOpen(o => !o)}
+                  style={{
+                    background: settingsOpen ? T.btnBgActive : "none",
+                    border: settingsOpen ? `1px solid ${T.btnBorder}` : "1px solid transparent",
+                    borderRadius: 6,
+                    color: T.textMuted,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Settings
+                </button>
+              </div>
             </div>
           </div>
-          <div>
-            <label style={{ fontSize: 12, opacity: 0.6, textTransform: "uppercase", letterSpacing: 1 }}>
-              Walk to station: <strong style={{ color: "#fff", opacity: 1 }}>{walkTime} min</strong>
-            </label>
-            <input type="range" min={1} max={20} value={walkTime} onChange={e => setWalkTime(+e.target.value)}
-              style={{ width: "100%", marginTop: 6, accentColor: status.glow }} />
-          </div>
-        </div>
-      )}
 
-      {/* Main display */}
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", padding: "20px 20px 40px", width: "100%", maxWidth: 480
-      }}>
-        {/* Circle + countdown */}
-        <div style={{ position: "relative", marginBottom: 20, animation: isUrgent ? "urgentPulse 0.8s ease infinite" : "none" }}>
-          <CircleTimer pct={ringPct} color={status.glow} size={220} stroke={10} />
-          <div style={{
-            position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center"
-          }}>
-            <div style={{ fontSize: 48, lineHeight: 1 }}>{status.emoji}</div>
+          {/* Settings panel */}
+          {settingsOpen && (
             <div style={{
-              fontSize: minsToNext !== null && minsToNext < 100 ? 42 : 32,
-              fontWeight: 800, fontVariantNumeric: "tabular-nums", marginTop: 4,
-              animation: isUrgent ? "pulse 1s ease infinite" : "none"
+              padding: "20px 28px",
+              borderBottom: `1px solid ${T.border}`,
+              animation: "fadeIn 0.2s ease",
+              background: T.surfaceAlt,
             }}>
-              {minsToNext !== null ? (minsToNext < 1 ? `${Math.max(0, Math.floor(minsToNext * 60))}s` : fmt(minsToNext)) : "--"}
-            </div>
-          </div>
-        </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                <div>
+                  <label style={{
+                    fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
+                    textTransform: "uppercase", color: T.textMuted, display: "block", marginBottom: 8,
+                  }}>
+                    Station
+                  </label>
+                  <select
+                    value={stop}
+                    onChange={e => setStop(e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8,
+                      border: `1px solid ${T.borderInput}`,
+                      background: T.surface, color: T.text,
+                      fontSize: 14, outline: "none",
+                    }}
+                  >
+                    {ORANGE_STOPS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
 
-        {/* Status label */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{
-            fontSize: 36, fontWeight: 900, textTransform: "uppercase", letterSpacing: 3,
-            textShadow: `0 0 40px ${status.glow}`, lineHeight: 1.1
-          }}>
-            {status.label}
-          </div>
-          <div style={{ fontSize: 14, opacity: 0.6, marginTop: 6 }}>{status.sub}</div>
-        </div>
+                <div>
+                  <label style={{
+                    fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
+                    textTransform: "uppercase", color: T.textMuted, display: "block", marginBottom: 8,
+                  }}>
+                    Direction
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[["0", "Forest Hills"], ["1", "Oak Grove"]].map(([d, label]) => (
+                      <button
+                        key={d}
+                        onClick={() => setDir(d)}
+                        style={{
+                          flex: 1, padding: "10px 0", borderRadius: 8,
+                          border: dir === d ? "1px solid rgba(249,115,22,0.4)" : `1px solid ${T.dirInactBdr}`,
+                          background: dir === d ? "rgba(249,115,22,0.1)" : T.dirInactBg,
+                          color: dir === d ? "#fb923c" : T.dirInactClr,
+                          fontSize: 13, fontWeight: dir === d ? 600 : 400, cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-        {/* Shoes animation */}
-        {status !== STATUS.NO_SERVICE && status !== STATUS.LOADING && (
-          <div style={{ display: "flex", gap: 12, marginBottom: 28, minHeight: 56 }}>
-            {(status === STATUS.DILLY) && <Shoe color={status.glow} bounce={false} />}
-            {(status === STATUS.WALK) && <><Shoe color={status.glow} bounce={true} /><Shoe color={status.glow} bounce={true} /></>}
-            {(status === STATUS.HUSTLE) && <><Shoe color={status.glow} bounce={true} /><Shoe color={status.glow} bounce={true} /><Shoe color={status.glow} bounce={true} /></>}
-            {(status === STATUS.RUN || status === STATUS.ARRIVING) && (
-              <>{[0,1,2,3].map(i => <Shoe key={i} color={status.glow} bounce={true} />)}</>
-            )}
-          </div>
-        )}
-
-        {/* Next trains cards */}
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-          <TrainCard label="Next Train" minutes={minsToNext} time={next} glow={status.glow} primary />
-          <TrainCard label="Following Train" minutes={minsToAfter} time={after} glow={status.glow} />
-          {futurePreds.length > 2 && (
-            <div style={{
-              display: "flex", gap: 8, justifyContent: "center", padding: "4px 0", flexWrap: "wrap"
-            }}>
-              {futurePreds.slice(2).map((t, i) => {
-                const m = (t - now) / 60000;
-                return (
-                  <span key={i} style={{
-                    background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "4px 10px",
-                    fontSize: 12, opacity: 0.5
-                  }}>+{fmt(m)}</span>
-                );
-              })}
+                <div>
+                  <label style={{
+                    fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
+                    textTransform: "uppercase", color: T.textMuted, display: "block", marginBottom: 8,
+                  }}>
+                    Walk time — <span style={{ color: T.text, textTransform: "none", letterSpacing: 0 }}>{walkTime} min</span>
+                  </label>
+                  <input
+                    type="range" min={1} max={20} value={walkTime}
+                    onChange={e => setWalkTime(+e.target.value)}
+                    style={{ width: "100%", accentColor: "#f97316" }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted, marginTop: 4 }}>
+                    <span>1 min</span><span>20 min</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-        </div>
 
-        {error && (
-          <div style={{
-            marginTop: 16, padding: "10px 16px", background: "rgba(239,68,68,0.15)",
-            borderRadius: 10, fontSize: 13, opacity: 0.8, textAlign: "center"
-          }}>
-            ⚠️ {error} — retrying...
+          {/* Train list */}
+          <div style={{ padding: "8px 0" }}>
+            {loading && (
+              <div style={{ padding: "40px 28px", color: T.textLoading, fontSize: 14, textAlign: "center" }}>
+                Loading predictions...
+              </div>
+            )}
+
+            {!loading && futurePreds.length === 0 && !error && (
+              <div style={{ padding: "40px 28px", color: T.textLoading, fontSize: 14, textAlign: "center" }}>
+                No upcoming trains
+              </div>
+            )}
+
+            {!loading && futurePreds.map((t, i) => {
+              const mins = (t - now) / 60000;
+              const st = getTrainStatus(mins, walkTime);
+              const timeStr = new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+              const isFirst = i === 0;
+
+              return (
+                <div
+                  key={t}
+                  className="train-row"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "16px 28px",
+                    borderBottom: `1px solid ${T.borderSubtle}`,
+                    background: isFirst ? T.rowFirst : "transparent",
+                    gap: 16,
+                  }}
+                >
+                  <div style={{
+                    width: 3, height: 36, borderRadius: 2,
+                    background: st.color, flexShrink: 0,
+                    opacity: isFirst ? 1 : 0.7,
+                  }} />
+
+                  <div style={{
+                    minWidth: 80,
+                    fontSize: isFirst ? 28 : 22,
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums",
+                    color: isFirst ? T.textStrong : T.textMid,
+                    letterSpacing: "-0.02em",
+                    fontFamily: "'SF Mono', 'Fira Code', monospace",
+                  }}>
+                    {mins < 1 ? `${Math.max(0, Math.floor(mins * 60))}s` : fmt(mins)}
+                  </div>
+
+                  <div style={{ flex: 1, fontSize: 13, color: T.textMuted }}>
+                    {timeStr}
+                  </div>
+
+                  <div style={{
+                    padding: "4px 10px", borderRadius: 6,
+                    fontSize: 11, fontWeight: 700,
+                    letterSpacing: "0.08em", textTransform: "uppercase",
+                    color: st.color, background: st.bg,
+                    border: `1px solid ${st.color}22`,
+                  }}>
+                    {st.label}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
 
-      {/* Footer */}
-      <div style={{ padding: "12px 20px 16px", opacity: 0.3, fontSize: 11, textAlign: "center" }}>
-        Live data from MBTA V3 API · Refreshes every 15s
-      </div>
-    </div>
-  );
-}
+          {error && (
+            <div style={{
+              margin: "8px 28px", padding: "10px 14px",
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: 8, fontSize: 12, color: "#f87171",
+            }}>
+              {error} — retrying
+            </div>
+          )}
 
-function TrainCard({ label, minutes, time, glow, primary }) {
-  const timeStr = time ? new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "--";
-  return (
-    <div style={{
-      background: primary ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)",
-      borderRadius: 14, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center",
-      border: primary ? `1px solid rgba(255,255,255,0.12)` : "1px solid rgba(255,255,255,0.05)"
-    }}>
-      <div>
-        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.5 }}>{label}</div>
-        <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-          {minutes !== null ? fmt(minutes) : "—"}
+          {/* Footer */}
+          <div style={{
+            padding: "16px 28px 0", fontSize: 12, color: T.textMuted,
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "#22c55e",
+                boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)",
+                animation: "pulse 2s infinite ease-in-out"
+              }} />
+              <span>Live</span>
+            </div>
+            <span>
+              {secsSinceFetch !== null 
+                ? `Updating in ${Math.max(0, 15 - secsSinceFetch)}s` 
+                : "Connecting..."}
+            </span>
+          </div>
         </div>
       </div>
-      <div style={{
-        fontSize: 14, opacity: 0.5, background: "rgba(255,255,255,0.06)",
-        borderRadius: 8, padding: "4px 10px"
-      }}>{timeStr}</div>
     </div>
   );
 }
