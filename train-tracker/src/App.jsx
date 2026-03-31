@@ -145,7 +145,7 @@ export default function App() {
         })
         .filter(Boolean)
         .sort((a, b) => a - b)
-        .slice(0, 5);
+        .slice(0, 7);
       setPredictions(preds);
       setLastFetch(Date.now());
       setError(null);
