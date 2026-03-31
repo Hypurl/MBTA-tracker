@@ -27,7 +27,7 @@ const LIGHT = {
 const API_BASE = "https://train.jeffou.io/api";
 
 function getStatus(min, walk) {
-  if (min <= 0.25) return { label: "Now", color: "#f97316", bg: "rgba(249,115,22,0.12)" };
+  if (min < 1) return { label: "Now", color: "#f97316", bg: "rgba(249,115,22,0.12)" };
   if (min < walk * 0.7) return { label: "Run", color: "#ef4444", bg: "rgba(239,68,68,0.1)" };
   if (min < walk * 1.5) return { label: "Walk", color: "#eab308", bg: "rgba(234,179,8,0.1)" };
   return { label: "Relax", color: "#22c55e", bg: "rgba(34,197,94,0.1)" };
