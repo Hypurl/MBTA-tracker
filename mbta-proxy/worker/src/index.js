@@ -7,14 +7,14 @@ export default {
         headers: corsHeaders(ALLOWED_ORIGIN),
       });
     }
-    
+
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405 });
     }
 
-    // Forward the request path + query to the MBTA API
     const url = new URL(request.url);
-    const mbtaUrl = `https://api-v3.mbta.com${url.pathname}${url.search}`;
+    const path = url.pathname.replace(/^\/api/, "");
+    const mbtaUrl = `https://api-v3.mbta.com${path}${url.search}`;
 
     try {
       const mbtaResponse = await fetch(mbtaUrl, {
