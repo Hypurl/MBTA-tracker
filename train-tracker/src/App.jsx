@@ -11,6 +11,7 @@ const DARK = {
   dirInactClr: "#94a3b8", text: "#e2e8f0", textStrong: "#f8fafc", textMid: "#94a3b8",
   textMuted: "#475569", textFaint: "#1e293b", textLoading: "#334155",
   colorScheme: "dark", rowFirst: "rgba(255,255,255,0.025)", rowHover: "rgba(255,255,255,0.03)",
+  toggleBg: "rgba(255,255,255,0.1)", toggleBgOn: "#22c55e",
 };
 const LIGHT = {
   bg: "#f8fafc", surface: "rgba(0,0,0,0.025)", surfaceAlt: "rgba(0,0,0,0.015)",
@@ -21,10 +22,12 @@ const LIGHT = {
   dirInactClr: "#64748b", text: "#1e293b", textStrong: "#0f172a", textMid: "#64748b",
   textMuted: "#94a3b8", textFaint: "#cbd5e1", textLoading: "#94a3b8",
   colorScheme: "light", rowFirst: "rgba(0,0,0,0.025)", rowHover: "rgba(0,0,0,0.025)",
+  toggleBg: "rgba(0,0,0,0.15)", toggleBgOn: "#22c55e",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 const API_BASE = "https://train.jeffou.io/api";
+const REFRESH_INTERVAL = 15000;
 
 function getStatus(min, walk) {
   if (min < 1) return { label: "Now", color: "#f97316", bg: "rgba(249,115,22,0.12)" };
@@ -53,6 +56,23 @@ const Moon = () => (
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
   </svg>
 );
+
+// ─── Toggle Switch ───────────────────────────────────────────────────
+function Toggle({ on, onChange, T }) {
+  return (
+    <button onClick={() => onChange(!on)} style={{
+      width: 40, height: 22, borderRadius: 11, padding: 2, border: "none", cursor: "pointer",
+      background: on ? T.toggleBgOn : T.toggleBg, transition: "background 0.2s",
+      display: "flex", alignItems: "center", flexShrink: 0,
+    }}>
+      <div style={{
+        width: 18, height: 18, borderRadius: "50%", background: "#fff",
+        transform: on ? "translateX(18px)" : "translateX(0)",
+        transition: "transform 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+      }} />
+    </button>
+  );
+}
 
 // ─── App ─────────────────────────────────────────────────────────────
 export default function App() {
@@ -98,6 +118,9 @@ export default function App() {
   const [walkTime, setWalkTime] = useState(() => {
     try { return Number(localStorage.getItem("mbta_walk")) || 5; } catch { return 5; }
   });
+  const [autoRefresh, setAutoRefresh] = useState(() => {
+    try { return localStorage.getItem("mbta_autorefresh") !== "false"; } catch { return true; }
+  });
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -111,8 +134,9 @@ export default function App() {
       localStorage.setItem("mbta_stop", stop);
       localStorage.setItem("mbta_dir", dir);
       localStorage.setItem("mbta_walk", String(walkTime));
+      localStorage.setItem("mbta_autorefresh", String(autoRefresh));
     } catch {}
-  }, [lineKey, stop, dir, walkTime]);
+  }, [lineKey, stop, dir, walkTime, autoRefresh]);
 
   const line = LINES[lineKey];
   const accent = line.color;
@@ -120,7 +144,6 @@ export default function App() {
   const stopName = line.stops.find(s => s.id === stop)?.name || stop;
   const dirLabel = line.dirs[+dir];
 
-  // When line changes, pick first stop and reset dir
   const changeLine = (k) => {
     setLineKey(k);
     setDir("0");
@@ -153,12 +176,14 @@ export default function App() {
     finally { setLoading(false); }
   }, [stop, dir, isTerminal, line.route]);
 
+  // Always fetch once on mount / when params change; only set interval if autoRefresh is on
   useEffect(() => {
     setLoading(true);
     fetchPredictions();
-    const id = setInterval(fetchPredictions, 15000);
+    if (!autoRefresh) return;
+    const id = setInterval(fetchPredictions, REFRESH_INTERVAL);
     return () => clearInterval(id);
-  }, [fetchPredictions]);
+  }, [fetchPredictions, autoRefresh]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -167,10 +192,9 @@ export default function App() {
 
   const futurePreds = predictions.filter(t => t > now - 15000);
   const secsSinceFetch = lastFetch ? Math.max(0, Math.floor((now - lastFetch) / 1000)) : null;
-  const progressPct = lastFetch ? Math.min(100, ((now - lastFetch) / 15000) * 100) : 0;
+  const progressPct = autoRefresh && lastFetch ? Math.min(100, ((now - lastFetch) / REFRESH_INTERVAL) * 100) : 0;
   const isResetting = progressPct < 5;
 
-  // Determine which top-level "group" is active (for Green)
   const isGreen = lineKey.startsWith("Green");
   const activeGroup = isGreen ? "Green" : lineKey;
 
@@ -180,6 +204,10 @@ export default function App() {
     { key: "Blue", label: "Blue", color: "#3b82f6" },
     { key: "Green", label: "Green", color: "#22c55e" },
   ];
+
+  const secsRemaining = autoRefresh && secsSinceFetch != null
+    ? Math.max(0, Math.round(REFRESH_INTERVAL / 1000) - secsSinceFetch)
+    : null;
 
   return (
     <div style={{
@@ -322,6 +350,16 @@ export default function App() {
                     <span>1 min</span><span>20 min</span>
                   </div>
                 </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: T.textMuted, display: "block" }}>Auto-refresh</label>
+                    <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>
+                      {autoRefresh ? "Updates every 15 seconds" : "Paused"}
+                    </div>
+                  </div>
+                  <Toggle on={autoRefresh} onChange={setAutoRefresh} T={T} />
+                </div>
               </div>
             </div>
           )}
@@ -379,12 +417,18 @@ export default function App() {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
               <div style={{
-                width: 6, height: 6, borderRadius: "50%", background: "#22c55e",
-                boxShadow: "0 0 8px rgba(34,197,94,0.6)", animation: "pulse 2s infinite ease-in-out",
+                width: 6, height: 6, borderRadius: "50%",
+                background: autoRefresh ? "#22c55e" : T.textMuted,
+                boxShadow: autoRefresh ? "0 0 8px rgba(34,197,94,0.6)" : "none",
+                animation: autoRefresh ? "pulse 2s infinite ease-in-out" : "none",
               }} />
-              <span>Live</span>
+              <span>{autoRefresh ? "Live" : "Paused"}</span>
             </div>
-            <span>{secsSinceFetch != null ? `Updating in ${Math.max(0, 15 - secsSinceFetch)}s` : "Connecting..."}</span>
+            <span>
+              {autoRefresh
+                ? (secsRemaining != null ? `Updating in ${secsRemaining}s` : "Connecting...")
+                : "Auto-refresh off"}
+            </span>
           </div>
         </div>
       </div>
