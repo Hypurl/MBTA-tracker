@@ -1,0 +1,8 @@
+{
+	"name": "mbta-proxy",
+	"main": "src/index.js",
+	"compatibility_date": "2025-03-01",
+	"routes": [
+	  { "pattern": "train.jeffou.io/api/*", "zone_name": "jeffou.io" }
+	]
+  }
