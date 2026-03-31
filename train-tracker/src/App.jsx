@@ -81,9 +81,23 @@ function Shoe({ color, bounce }) {
 }
 
 export default function App() {
-  const [stop, setStop] = useState("place-forhl");
-  const [dir, setDir] = useState("0");
-  const [walkTime, setWalkTime] = useState(5);
+  const [stop, setStop] = useState(() => {
+    try { return localStorage.getItem("mbta_stop") || "place-forhl"; } catch { return "place-forhl"; }
+  });
+  const [dir, setDir] = useState(() => {
+    try { return localStorage.getItem("mbta_dir") || "0"; } catch { return "0"; }
+  });
+  const [walkTime, setWalkTime] = useState(() => {
+    try { return Number(localStorage.getItem("mbta_walk")) || 5; } catch { return 5; }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("mbta_stop", stop);
+      localStorage.setItem("mbta_dir", dir);
+      localStorage.setItem("mbta_walk", String(walkTime));
+    } catch {}
+  }, [stop, dir, walkTime]);
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
