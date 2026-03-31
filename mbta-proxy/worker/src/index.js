@@ -1,6 +1,8 @@
 export default {
   async fetch(request, env) {
-    const ALLOWED_ORIGIN = "https://train.jeffou.io";
+    const origin = request.headers.get("Origin");
+    const ALLOWED_ORIGINS = ["https://train.jeffou.io", "http://localhost:5173"];
+    const ALLOWED_ORIGIN = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
