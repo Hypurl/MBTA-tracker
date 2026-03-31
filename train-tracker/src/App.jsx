@@ -81,7 +81,7 @@ function Shoe({ color, bounce }) {
 }
 
 export default function App() {
-  const [stop, setStop] = useState("place-rcmnl");
+  const [stop, setStop] = useState("place-forhl");
   const [dir, setDir] = useState("0");
   const [walkTime, setWalkTime] = useState(5);
   const [predictions, setPredictions] = useState([]);
