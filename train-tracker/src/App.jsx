@@ -23,6 +23,9 @@ const ORANGE_STOPS = [
   { id: "place-forhl", name: "Forest Hills" },
 ];
 
+// Terminal stops don't have departure times, only arrivals
+const TERMINAL_STOPS = new Set(["place-ogmnl", "place-forhl"]);
+
 const API_BASE = "https://train.jeffou.io/api";
 
 const DARK = {
@@ -167,19 +170,32 @@ export default function App() {
   const [lastFetch, setLastFetch] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const isTerminal = TERMINAL_STOPS.has(stop);
+
   const fetchPredictions = useCallback(async () => {
     try {
-      const url = `${API_BASE}/predictions?filter[route]=Orange&filter[stop]=${stop}&filter[direction_id]=${dir}&sort=departure_time&page[limit]=5`;
+      // Terminal stops: omit direction filter since all trains head one way out
+      const dirParam = isTerminal ? "" : `&filter[direction_id]=${dir}`;
+      const url = `${API_BASE}/predictions?filter[route]=Orange&filter[stop]=${stop}${dirParam}&sort=arrival_time&page[limit]=10`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`API ${res.status}`);
       const json = await res.json();
       const preds = (json.data || [])
+        .filter(p => {
+          // For non-terminal stops, require a departure_time to exclude
+          // terminal-bound predictions that leak through with null departures
+          if (!isTerminal) return p.attributes.departure_time != null;
+          // For terminal stops, accept either departure or arrival time
+          return p.attributes.departure_time != null || p.attributes.arrival_time != null;
+        })
         .map(p => {
-          const t = p.attributes.departure_time || p.attributes.arrival_time;
+          // Prefer departure_time for through-stations, arrival_time for terminals
+          const t = p.attributes.departure_time ?? p.attributes.arrival_time;
           return t ? new Date(t).getTime() : null;
         })
         .filter(Boolean)
-        .sort((a, b) => a - b);
+        .sort((a, b) => a - b)
+        .slice(0, 5);
       setPredictions(preds);
       setLastFetch(Date.now());
       setError(null);
@@ -188,7 +204,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [stop, dir]);
+  }, [stop, dir, isTerminal]);
 
   useEffect(() => {
     setLoading(true);
@@ -209,7 +225,6 @@ export default function App() {
   // Progress calculations
   const secsSinceFetch = lastFetch ? Math.max(0, Math.floor((now - lastFetch) / 1000)) : null;
   const progressPct = lastFetch ? Math.min(100, ((now - lastFetch) / 15000) * 100) : 0;
-  // Disable transition momentarily when progress resets to 0 to prevent a backwards sliding animation
   const isResetting = progressPct < 5; 
 
   return (
