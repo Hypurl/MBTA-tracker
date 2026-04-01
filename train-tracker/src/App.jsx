@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { LINES, LINE_KEYS, GREEN_BRANCHES } from "./lines";
 
 // ─── Themes ──────────────────────────────────────────────────────────
@@ -41,6 +41,24 @@ function fmt(min) {
   if (min < 1) return "<1 min";
   if (min < 60) return `${Math.floor(min)} min`;
   return `${Math.floor(min / 60)}h ${Math.floor(min % 60)}m`;
+}
+
+// ─── Child stop cache ────────────────────────────────────────────────
+const childStopCache = {};
+
+async function getChildStopIds(parentId) {
+  if (childStopCache[parentId]) return childStopCache[parentId];
+  try {
+    const res = await fetch(`${API_BASE}/stops?filter[parent_station]=${parentId}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const ids = new Set((json.data || []).map(s => s.id));
+    ids.add(parentId);
+    childStopCache[parentId] = ids;
+    return ids;
+  } catch {
+    return null;
+  }
 }
 
 const Sun = () => (
@@ -140,7 +158,6 @@ export default function App() {
 
   const line = LINES[lineKey];
   const accent = line.color;
-  const isTerminal = line.terminals.has(stop);
   const stopName = line.stops.find(s => s.id === stop)?.name || stop;
   const dirLabel = line.dirs[+dir];
 
@@ -152,29 +169,34 @@ export default function App() {
 
   const fetchPredictions = useCallback(async () => {
     try {
-      const dirP = isTerminal ? "" : `&filter[direction_id]=${dir}`;
-      const url = `${API_BASE}/predictions?filter[route]=${line.route}&filter[stop]=${stop}${dirP}&sort=arrival_time&page[limit]=10`;
+      const childIds = await getChildStopIds(stop);
+      const url = `${API_BASE}/predictions?filter[route]=${line.route}&filter[stop]=${stop}&filter[direction_id]=${dir}&sort=arrival_time&page[limit]=10`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`API ${res.status}`);
       const json = await res.json();
       const preds = (json.data || [])
         .filter(p => {
-          if (!isTerminal) return p.attributes.departure_time != null;
-          return p.attributes.departure_time != null || p.attributes.arrival_time != null;
+          if (!p.attributes.departure_time) return false;
+          if (childIds) {
+            const predStop = p.relationships?.stop?.data?.id;
+            if (predStop && !childIds.has(predStop)) return false;
+          }
+          return true;
         })
         .map(p => {
-          const t = p.attributes.departure_time ?? p.attributes.arrival_time;
+          const t = p.attributes.departure_time;
           return t ? new Date(t).getTime() : null;
         })
         .filter(Boolean)
         .sort((a, b) => a - b)
+        .filter((t, i, arr) => i === 0 || t - arr[i - 1] > 30000)
         .slice(0, 7);
       setPredictions(preds);
       setLastFetch(Date.now());
       setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [stop, dir, isTerminal, line.route]);
+  }, [stop, dir, line.route]);
 
   // Always fetch once on mount / when params change; only set interval if autoRefresh is on
   useEffect(() => {
