@@ -12,6 +12,7 @@ const DARK = {
   textMuted: "#475569", textFaint: "#1e293b", textLoading: "#334155",
   colorScheme: "dark", rowFirst: "rgba(255,255,255,0.025)", rowHover: "rgba(255,255,255,0.03)",
   toggleBg: "rgba(255,255,255,0.1)", toggleBgOn: "#22c55e",
+  departingBg: "rgba(249,115,22,0.06)",
 };
 const LIGHT = {
   bg: "#f8fafc", surface: "rgba(0,0,0,0.025)", surfaceAlt: "rgba(0,0,0,0.015)",
@@ -23,6 +24,7 @@ const LIGHT = {
   textMuted: "#94a3b8", textFaint: "#cbd5e1", textLoading: "#94a3b8",
   colorScheme: "light", rowFirst: "rgba(0,0,0,0.025)", rowHover: "rgba(0,0,0,0.025)",
   toggleBg: "rgba(0,0,0,0.15)", toggleBgOn: "#22c55e",
+  departingBg: "rgba(249,115,22,0.05)",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -61,6 +63,7 @@ async function getChildStopIds(parentId) {
   }
 }
 
+// ─── Icons ───────────────────────────────────────────────────────────
 const Sun = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
@@ -72,6 +75,14 @@ const Sun = () => (
 const Moon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+);
+const TrainIcon = ({ color }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="14" rx="2"/>
+    <circle cx="9" cy="21" r="1"/><circle cx="15" cy="21" r="1"/>
+    <path d="M4 11h16"/><path d="M12 3v8"/>
+    <line x1="8" y1="17" x2="9" y2="21"/><line x1="16" y1="17" x2="15" y2="21"/>
   </svg>
 );
 
@@ -198,7 +209,6 @@ export default function App() {
     finally { setLoading(false); }
   }, [stop, dir, line.route]);
 
-  // Always fetch once on mount / when params change; only set interval if autoRefresh is on
   useEffect(() => {
     setLoading(true);
     fetchPredictions();
@@ -212,7 +222,8 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  const futurePreds = predictions.filter(t => t > now);
+  const visiblePreds = predictions.filter(t => t > now - 7000);
+  const firstUpcomingIdx = visiblePreds.findIndex(t => t > now);
   const secsSinceFetch = lastFetch ? Math.max(0, Math.floor((now - lastFetch) / 1000)) : null;
   const progressPct = autoRefresh && lastFetch ? Math.min(100, ((now - lastFetch) / REFRESH_INTERVAL) * 100) : 0;
   const isResetting = progressPct < 5;
@@ -243,6 +254,7 @@ export default function App() {
         select,input{color-scheme:${T.colorScheme}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%{opacity:1;transform:scale(.95)}50%{opacity:.5;transform:scale(1.05)}100%{opacity:1;transform:scale(.95)}}
+        @keyframes trainPulse{0%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}100%{opacity:.7;transform:scale(1)}}
         .train-row{transition:background .15s}
         .train-row:hover{background:${T.rowHover}!important}
         .line-btn{transition:all .15s;cursor:pointer;border:none;font-weight:600;font-size:12px;letter-spacing:.04em;padding:7px 14px;border-radius:8px}
@@ -391,24 +403,51 @@ export default function App() {
             {loading && (
               <div style={{ padding: "40px 28px", color: T.textLoading, fontSize: 14, textAlign: "center" }}>Loading predictions...</div>
             )}
-            {!loading && futurePreds.length === 0 && !error && (
+            {!loading && visiblePreds.length === 0 && !error && (
               <div style={{ padding: "40px 28px", color: T.textLoading, fontSize: 14, textAlign: "center" }}>No upcoming trains</div>
             )}
-            {!loading && futurePreds.map((t, i) => {
+            {!loading && visiblePreds.map((t, i) => {
               const mins = (t - now) / 60000;
+              const isDeparting = t <= now;
+              const isNext = i === firstUpcomingIdx;
+
+              if (isDeparting) {
+                return (
+                  <div key={t} className="train-row" style={{
+                    display: "flex", alignItems: "center", padding: "12px 28px",
+                    borderBottom: `1px solid ${T.borderSubtle}`,
+                    background: `${accent}10`, gap: 14,
+                  }}>
+                    <div style={{ flexShrink: 0, animation: "trainPulse 1s infinite ease-in-out", display: "flex", alignItems: "center" }}>
+                      <TrainIcon color={accent} />
+                    </div>
+                    <div style={{
+                      fontSize: 14, fontWeight: 600, color: accent,
+                      letterSpacing: "0.02em", flex: 1,
+                    }}>
+                      Departing now
+                    </div>
+                    <div style={{
+                      fontSize: 12, color: T.textMuted,
+                    }}>
+                      {new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                    </div>
+                  </div>
+                );
+              }
+
               const st = getStatus(mins, walkTime);
               const timeStr = new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-              const isFirst = i === 0;
               return (
                 <div key={t} className="train-row" style={{
                   display: "flex", alignItems: "center", padding: "16px 28px",
                   borderBottom: `1px solid ${T.borderSubtle}`,
-                  background: isFirst ? T.rowFirst : "transparent", gap: 16,
+                  background: isNext ? T.rowFirst : "transparent", gap: 16,
                 }}>
-                  <div style={{ width: 3, height: 36, borderRadius: 2, background: st.color, flexShrink: 0, opacity: isFirst ? 1 : 0.7 }} />
+                  <div style={{ width: 3, height: 36, borderRadius: 2, background: st.color, flexShrink: 0, opacity: isNext ? 1 : 0.7 }} />
                   <div style={{
-                    minWidth: 80, fontSize: isFirst ? 28 : 22, fontWeight: 700,
-                    fontVariantNumeric: "tabular-nums", color: isFirst ? T.textStrong : T.textMid,
+                    minWidth: 80, fontSize: isNext ? 28 : 22, fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums", color: isNext ? T.textStrong : T.textMid,
                     letterSpacing: "-0.02em", fontFamily: "'SF Mono','Fira Code',monospace",
                   }}>
                     {mins < 1 ? `${Math.max(0, Math.floor(mins * 60))}s` : fmt(mins)}
