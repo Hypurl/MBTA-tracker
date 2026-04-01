@@ -212,7 +212,7 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  const futurePreds = predictions.filter(t => t > now - 15000);
+  const futurePreds = predictions.filter(t => t > now);
   const secsSinceFetch = lastFetch ? Math.max(0, Math.floor((now - lastFetch) / 1000)) : null;
   const progressPct = autoRefresh && lastFetch ? Math.min(100, ((now - lastFetch) / REFRESH_INTERVAL) * 100) : 0;
   const isResetting = progressPct < 5;
